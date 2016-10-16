@@ -31,6 +31,8 @@ print("")
 
 # CHANGE THIS: Load data. Load your own data here
 if FLAGS.eval_train:
+    # Loads the pickle objects for validation
+
     x_raw, y_test = data_helpers.load_data_and_labels()
     y_test = np.argmax(y_test, axis=1)
 else:

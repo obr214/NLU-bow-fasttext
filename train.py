@@ -15,14 +15,12 @@ from tensorflow.contrib import learn
 # ==================================================
 
 # Model Hyperparameters
-tf.flags.DEFINE_integer("embedding_dim", 64, "Dimensionality of character embedding (default: 128)")
-tf.flags.DEFINE_string("filter_sizes", "2,3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
-tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
+tf.flags.DEFINE_integer("embedding_dim", 128, "Dimensionality of character embedding (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
-tf.flags.DEFINE_float("l2_reg_lambda", 3.0, "L2 regularizaion lambda (default: 0.0)")
+tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularizaion lambda (default: 0.0)")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 32, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 200, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 200, "Save model after this many steps (default: 100)")
@@ -55,11 +53,14 @@ x_train, y_train = label_data(train_positive_reviews, train_negative_reviews)
 # Replace the words not in vocabulary for 'oov' tag
 print("Replacing with OOV...")
 # x_train_reviews_oov = set_oov_tag(x_train, vocabulary)
-x_train_reviews_oov = set_oov(x_train, vocabulary)
+# x_train_reviews_oov = set_oov(x_train, vocabulary)
+
+# Because this is an expensive operation, it has been preprocessed and saved in a pickle object.
+x_train_reviews_oov = pickle.load(open("data/reviews_oov.p", "rb"))
 
 # Creates the indexes
 # TODO: max_document_length should be changed to a global parameter
-max_document_length = 50
+max_document_length = 200
 vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
 x_train_idx = np.array(list(vocab_processor.fit_transform(x_train_reviews_oov)))
 # TODO: Not Sure if for the dev set has to be fit or fit_transform
@@ -70,7 +71,13 @@ x_train_list, x_dev_list = split_train_validation(x_train_idx, np.array(y_train)
 
 # Gets the Train Reviews
 x_train_reviews = x_train_list[0]
+x_train_labels = x_train_list[1]
+
+# Save the dev sets into pickle files
 x_dev_reviews = x_dev_list[0]
+x_dev_labels = x_dev_list[1]
+pickle.dump(x_dev_reviews, open("data/x_dev_reviews.p", "wb"))
+pickle.dump(x_dev_labels, open("data/x_dev_labels.p", "wb"))
 
 print("Sequence Length: {:d}".format(x_train_reviews.shape[1]))
 print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
@@ -120,7 +127,7 @@ with tf.Graph().as_default():
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
         # TODO: Change the Optimizer
-        optimizer = tf.train.AdamOptimizer(1e-2)
+        optimizer = tf.train.AdamOptimizer(1e-3)
         grads_and_vars = optimizer.compute_gradients(cbow.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
@@ -201,8 +208,8 @@ with tf.Graph().as_default():
             return loss, accuracy
 
         # Generate batches
-        batches = data_helpers.batch_iter(
-            list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+        batches = batch_iter(
+            list(zip(x_train_reviews, x_train_labels)), FLAGS.batch_size, FLAGS.num_epochs)
         # Training loop. For each batch...
 
         """
@@ -231,7 +238,7 @@ with tf.Graph().as_default():
 
             if current_step % FLAGS.evaluate_every == 0:
                 print("\nEvaluation:")
-                loss, accuracy = dev_step(x_dev, y_dev, writer=dev_summary_writer)
+                loss, accuracy = dev_step(x_dev_reviews, x_dev_labels, writer=dev_summary_writer)
                 if loss < best_loss:
                     break_count = 0
                     best_loss = loss
