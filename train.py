@@ -37,42 +37,44 @@ for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
 print("")
 
-
 # Data Preparatopn
 # ==================================================
 
 # Loads the data
-print("Loading data...")
+print("Loading Data...")
 train_positive_reviews, train_negative_reviews = get_train_sets()
 
 # Loads the vocabulary
-print("Loading vocabulary...")
+print("Loading Vocabulary...")
 vocabulary = load_vocabulary("data/vocab_unigrams_no_counts/part-00000")
 
 # Label the data
+print("Labeling Data...")
 x_train, y_train = label_data(train_positive_reviews, train_negative_reviews)
 
+# Replace the words not in vocabulary for 'oov' tag
+print("Replacing with OOV...")
+# x_train_reviews_oov = set_oov_tag(x_train, vocabulary)
+x_train_reviews_oov = set_oov(x_train, vocabulary)
+
+# Creates the indexes
+# TODO: max_document_length should be changed to a global parameter
+max_document_length = 50
+vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+x_train_idx = np.array(list(vocab_processor.fit_transform(x_train_reviews_oov)))
+# TODO: Not Sure if for the dev set has to be fit or fit_transform
+#x_dev = np.array(list(vocab_processor.fit_transform(x_dev_reviews)))
+
 # Separates in Train and Dev
-x_train_list, x_dev_list = split_train_validation(x_train, y_train)
+x_train_list, x_dev_list = split_train_validation(x_train_idx, np.array(y_train))
 
 # Gets the Train Reviews
 x_train_reviews = x_train_list[0]
 x_dev_reviews = x_dev_list[0]
 
-# Replace the words not in vocabulary for 'oov' tag
-x_train_reviews_oov = set_oov_tag(x_train_reviews, vocabulary)
-
-# Creates the indexes
-# TODO: max_document_length should be changed to a global parameter
-max_document_length = '50'
-vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-x_t = np.array(list(vocab_processor.fit_transform(x_train_reviews_oov)))
-# TODO: Not Sure if for the dev set has to be fit or fit_transform
-x_dev = np.array(list(vocab_processor.fit_transform(x_dev_reviews)))
-
+print("Sequence Length: {:d}".format(x_train_reviews.shape[1]))
 print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
 print("Train/Dev split: {:d}/{:d}".format(len(x_train_list[1]), len(x_dev_list[1])))
-
 
 #
 # # Load data
@@ -91,7 +93,6 @@ print("Train/Dev split: {:d}/{:d}".format(len(x_train_list[1]), len(x_dev_list[1
 # y_shuffled = y[shuffle_indices]
 #
 # # Split train/test set
-# # TODO: This is very crude, should use cross-validation
 # x_train, x_dev = x_shuffled[:-1000], x_shuffled[-1000:]
 # y_train, y_dev = y_shuffled[:-1000], y_shuffled[-1000:]
 
@@ -107,7 +108,7 @@ with tf.Graph().as_default():
     sess = tf.Session(config=session_conf)
     with sess.as_default():
         cbow = TextCBoW(
-            sequence_length=x_train.shape[1],
+            sequence_length=x_train_reviews.shape[1],
             num_classes=2,
             vocab_size=len(vocab_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
@@ -118,6 +119,7 @@ with tf.Graph().as_default():
 
         # Define Training procedure
         global_step = tf.Variable(0, name="global_step", trainable=False)
+        # TODO: Change the Optimizer
         optimizer = tf.train.AdamOptimizer(1e-2)
         grads_and_vars = optimizer.compute_gradients(cbow.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)

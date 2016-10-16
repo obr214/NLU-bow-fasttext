@@ -29,7 +29,7 @@ class TextCBoW(object):
 
             #self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
             print("embedded_chars: {}".format(self.embedded_chars.get_shape()))
-            self.embedded_chars_reduced = tf.reduce_mean(self.embedded_chars ,1)
+            self.embedded_chars_reduced = tf.reduce_mean(self.embedded_chars, 1)
             print("embedded_chars_reduced: {}".format(self.embedded_chars_reduced.get_shape()))
 
             self.W = tf.Variable(tf.truncated_normal([embedding_size, n_hidden], stddev=0.1), name="W")
@@ -57,7 +57,7 @@ class TextCBoW(object):
             print("self.scores: {}".format(self.scores.get_shape()))
             self.predictions = tf.argmax(self.scores, 1, name="predictions")
 
-        # CalculateMean cross-entropy loss
+        # Calculate Mean cross-entropy loss
         with tf.name_scope("loss"):
             losses = tf.nn.softmax_cross_entropy_with_logits(self.scores, self.input_y)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss

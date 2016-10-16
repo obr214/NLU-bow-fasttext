@@ -71,6 +71,7 @@ def label_data(positive_revs, negative_revs):
 
 
 def split_train_validation(x_train, y_train, amount_val=.25):
+
     # Randomly shuffle data
     np.random.seed(10)
     shuffle_indices = np.random.permutation(np.arange(len(y_train)))
@@ -87,6 +88,20 @@ def split_train_validation(x_train, y_train, amount_val=.25):
     y_dev = y_shuffled[training_num:]
 
     return [x_t, y_t], [x_dev, y_dev]
+
+
+def set_oov(reviews, vocabulary):
+    updated_reviews = []
+    for review in reviews:
+        splitted_review = review.split(" ")
+        for i, word in enumerate(splitted_review):
+            if word not in vocabulary:
+                splitted_review[i] = 'oov'
+            else:
+                splitted_review[i] = word
+        new_review = ' '.join(splitted_review)
+        updated_reviews.append(new_review)
+    return updated_reviews
 
 
 def set_oov_tag(reviews, vocabulary):
