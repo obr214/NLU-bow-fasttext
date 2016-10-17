@@ -125,6 +125,35 @@ def set_oov_tag(reviews, vocabulary):
     return updated_reviews
 
 
+# Functions for the N-Grams
+def parse_ngrams(text, n_g):
+    ngrams_text = []
+    for item in text:
+        words = item.split(" ")
+        words = find_ngrams(words, n_g)
+        words =["-".join(word) for word in words]
+        ngrams_text.append(" ".join(words[1:]))
+    return ngrams_text
+
+
+def find_ngrams(input_list, n):
+    return zip(*[input_list[i:] for i in range(n)])
+
+
+def build_noov(ngram, vocabulary):
+    aux_text = []
+    for element in ngram:
+        actual_word = []
+        for word in element.split(" "):
+            if word in vocabulary:
+                actual_word.append(word)
+            else:
+                actual_word.append("noov")
+        actual_word = " ".join(actual_word)
+        aux_text.append(actual_word)
+    return aux_text
+
+
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
     """
     Generates a batch iterator for a dataset.
