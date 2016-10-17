@@ -71,21 +71,22 @@ def label_data(positive_revs, negative_revs):
 
 
 def split_train_validation(x_train, y_train, amount_val=.25):
-
-    # Randomly shuffle data
+    x_train_shuffled = []
+    y_train_shuffled = []
     np.random.seed(10)
     shuffle_indices = np.random.permutation(np.arange(len(y_train)))
-    x_shuffled = x_train[shuffle_indices]
-    y_shuffled = y_train[shuffle_indices]
+    for i in shuffle_indices:
+        x_train_shuffled.append(x_train[i])
+        y_train_shuffled.append(y_train[i])
 
-    total_reviews = len(x_shuffled)
+    total_reviews = len(x_train_shuffled)
     training_num = total_reviews - int(total_reviews * amount_val)
 
-    x_t = x_shuffled[:training_num]
-    y_t = y_shuffled[:training_num]
+    x_t = x_train_shuffled[:training_num]
+    y_t = y_train_shuffled[:training_num]
 
-    x_dev = x_shuffled[training_num:]
-    y_dev = y_shuffled[training_num:]
+    x_dev = x_train_shuffled[training_num:]
+    y_dev = y_train_shuffled[training_num:]
 
     return [x_t, y_t], [x_dev, y_dev]
 

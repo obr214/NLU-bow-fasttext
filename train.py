@@ -7,8 +7,7 @@ import time
 import datetime
 from data_helpers import *
 from cbow import TextCBoW
-from text_cnn import TextCNN
-#from text_cnn_2_conv import TextCNN
+from pathlib import Path
 from tensorflow.contrib import learn
 
 # Parameters
@@ -30,6 +29,7 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on 
 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
+
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
@@ -52,58 +52,45 @@ x_train, y_train = label_data(train_positive_reviews, train_negative_reviews)
 
 # Replace the words not in vocabulary for 'oov' tag
 print("Replacing with OOV...")
-# x_train_reviews_oov = set_oov_tag(x_train, vocabulary)
-# x_train_reviews_oov = set_oov(x_train, vocabulary)
 
-# Because this is an expensive operation, it has been preprocessed and saved in a pickle object.
-x_train_reviews_oov = pickle.load(open("data/reviews_oov.p", "rb"))
+reviews_oov_file = Path("data/reviews_oov.p")
+if reviews_oov_file.is_file():
+    x_train_reviews_oov = pickle.load(open("data/reviews_oov.p", "rb"))
+else:
+    x_train_reviews_oov = set_oov(x_train, vocabulary)
+    # x_train_reviews_oov = set_oov_tag(x_train, vocabulary)
+    pickle.dump(x_train_reviews_oov, open("data/reviews_oov.p", "wb"))
+
+print("End replacing with OOV")
+
+# Splits the data in Train and Dev
+print("Splits Data Train and Dev")
+x_train_list, x_dev_list = split_train_validation(x_train_reviews_oov, y_train)
+
+# Gets the Train Reviews
+x_train_reviews_preidx = x_train_list[0]
+x_train_labels = x_train_list[1]
 
 # Creates the indexes
 # TODO: max_document_length should be changed to a global parameter
-max_document_length = 200
+max_document_length = 250
 vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-x_train_idx = np.array(list(vocab_processor.fit_transform(x_train_reviews_oov)))
-# TODO: Not Sure if for the dev set has to be fit or fit_transform
-#x_dev = np.array(list(vocab_processor.fit_transform(x_dev_reviews)))
+x_train_reviews = np.array(list(vocab_processor.fit_transform(x_train_reviews_preidx)))
 
-# Separates in Train and Dev
-x_train_list, x_dev_list = split_train_validation(x_train_idx, np.array(y_train))
-
-# Gets the Train Reviews
-x_train_reviews = x_train_list[0]
-x_train_labels = x_train_list[1]
-
-# Save the dev sets into pickle files
-x_dev_reviews = x_dev_list[0]
+# Gets the Dev Reviews and Save them into pickle files
+x_dev_reviews_preidx = x_dev_list[0]
 x_dev_labels = x_dev_list[1]
+
+# Fits the dev_reviews
+x_dev_reviews = np.array(list(vocab_processor.transform(x_dev_reviews_preidx)))
+
+# Saves the dev set
 pickle.dump(x_dev_reviews, open("data/x_dev_reviews.p", "wb"))
 pickle.dump(x_dev_labels, open("data/x_dev_labels.p", "wb"))
 
 print("Sequence Length: {:d}".format(x_train_reviews.shape[1]))
 print("Vocabulary Size: {:d}".format(len(vocab_processor.vocabulary_)))
-print("Train/Dev split: {:d}/{:d}".format(len(x_train_list[1]), len(x_dev_list[1])))
-
-#
-# # Load data
-# print("Loading data...")
-# x_text, y = data_helpers.load_data_and_labels()
-#
-# # Build vocabulary
-# max_document_length = max([len(x.split(" ")) for x in x_text])
-# vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-# x = np.array(list(vocab_processor.fit_transform(x_text)))
-#
-# # Randomly shuffle data
-# np.random.seed(10)
-# shuffle_indices = np.random.permutation(np.arange(len(y)))
-# x_shuffled = x[shuffle_indices]
-# y_shuffled = y[shuffle_indices]
-#
-# # Split train/test set
-# x_train, x_dev = x_shuffled[:-1000], x_shuffled[-1000:]
-# y_train, y_dev = y_shuffled[:-1000], y_shuffled[-1000:]
-
-
+print("Train/Dev split: {:d}/{:d}".format(len(x_train_reviews), len(x_dev_labels)))
 
 # Training
 # ==================================================
@@ -119,7 +106,7 @@ with tf.Graph().as_default():
             num_classes=2,
             vocab_size=len(vocab_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
-            n_hidden=256,
+            n_hidden=128,
             dropout_keep_prob=FLAGS.dropout_keep_prob,
             l2_reg_lambda=FLAGS.l2_reg_lambda
         )
@@ -212,21 +199,6 @@ with tf.Graph().as_default():
             list(zip(x_train_reviews, x_train_labels)), FLAGS.batch_size, FLAGS.num_epochs)
         # Training loop. For each batch...
 
-        """
-        for batch in batches:
-            x_batch, y_batch = zip(*batch)
-            train_step(x_batch, y_batch)
-            current_step = tf.train.global_step(sess, global_step)
-            if current_step % FLAGS.evaluate_every == 0:
-                print("\nEvaluation:")
-                dev_step(x_dev, y_dev, writer=dev_summary_writer)
-                print("")
-            if current_step % FLAGS.checkpoint_every == 0:
-                path = saver.save(sess, checkpoint_prefix, global_step=current_step)
-                print("Saved model checkpoint to {}\n".format(path))
-
-
-        """
         best_step = None
         best_loss = 100000
         break_count = 0
@@ -247,6 +219,6 @@ with tf.Graph().as_default():
                 else:
                     break_count += 1
 
-                if break_count == 30:
+                if break_count == 15:
                     break
                 print("")
