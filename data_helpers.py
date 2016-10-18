@@ -140,7 +140,7 @@ def find_ngrams(input_list, n):
     return zip(*[input_list[i:] for i in range(n)])
 
 
-def build_noov(ngram, vocabulary):
+def set_noov(ngram, vocabulary):
     aux_text = []
     for element in ngram:
         actual_word = []

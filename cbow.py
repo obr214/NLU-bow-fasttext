@@ -30,8 +30,6 @@ class TextCBoW(object):
             self.W = tf.Variable(tf.truncated_normal([embedding_size, n_hidden], stddev=0.1), name="W")
             self.b = tf.Variable(tf.random_normal([n_hidden]), name="b")
 
-            print("W {}".format(self.W.get_shape()))
-
             # self.output_layer = tf.add(tf.matmul(self.embedded_chars_reduced, self.W), self.b)
             self.output_layer = tf.nn.xw_plus_b(self.embedded_chars_reduced, self.W, self.b, name="scores")
             # self.output_layer = tf.nn.tanh(self.output_layer, name="tanh")

@@ -30,6 +30,11 @@ tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on 
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
 
+# Creates a flag for ngrams
+bi_Gram_flag = False
+# TODO: max_document_length should be changed to a global parameter
+max_document_length = 250
+
 print("\nParameters:")
 for attr, value in sorted(FLAGS.__flags.items()):
     print("{}={}".format(attr.upper(), value))
@@ -50,9 +55,22 @@ vocabulary = load_vocabulary("data/vocab_unigrams_no_counts/part-00000")
 print("Labeling Data...")
 x_train, y_train = label_data(train_positive_reviews, train_negative_reviews)
 
+if bi_Gram_flag:
+    print("BI GRAMS ON")
+    bi_grams = parse_ngrams(x_train, 2)
+    bigram_vocab = load_vocabulary("data/vocab_bigrams_no_counts/part-00000", 5000)
+    print("Replacing with NOOV...")
+    reviews_noov_file = Path("data/reviews_noov.p")
+    if reviews_noov_file.is_file():
+        x_train_reviews_noov = pickle.load(open("data/reviews_noov.p", "rb"))
+    else:
+        x_train_reviews_noov = set_noov(bi_grams, bigram_vocab)
+        # x_train_reviews_oov = set_oov_tag(x_train, vocabulary)
+        pickle.dump(x_train_reviews_noov, open("data/reviews_noov.p", "wb"))
+    print("End replacing with NOOV")
+
 # Replace the words not in vocabulary for 'oov' tag
 print("Replacing with OOV...")
-
 reviews_oov_file = Path("data/reviews_oov.p")
 if reviews_oov_file.is_file():
     x_train_reviews_oov = pickle.load(open("data/reviews_oov.p", "rb"))
@@ -60,20 +78,24 @@ else:
     x_train_reviews_oov = set_oov(x_train, vocabulary)
     # x_train_reviews_oov = set_oov_tag(x_train, vocabulary)
     pickle.dump(x_train_reviews_oov, open("data/reviews_oov.p", "wb"))
-
 print("End replacing with OOV")
 
-# Splits the data in Train and Dev
+x_train_revs = x_train_reviews_oov
+
+if bi_Gram_flag:
+    x_train_revs = [x_train_reviews_oov[i] + " " + x_train_reviews_noov[i] for i in range(len(x_train))]
+    max_document_length *= 2
+
+
 print("Splits Data Train and Dev")
-x_train_list, x_dev_list = split_train_validation(x_train_reviews_oov, y_train)
+x_train_list, x_dev_list = split_train_validation(x_train_revs, y_train)
 
 # Gets the Train Reviews
 x_train_reviews_preidx = x_train_list[0]
 x_train_labels = x_train_list[1]
 
 # Creates the indexes
-# TODO: max_document_length should be changed to a global parameter
-max_document_length = 250
+
 vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
 x_train_reviews = np.array(list(vocab_processor.fit_transform(x_train_reviews_preidx)))
 
@@ -106,7 +128,7 @@ with tf.Graph().as_default():
             num_classes=2,
             vocab_size=len(vocab_processor.vocabulary_),
             embedding_size=FLAGS.embedding_dim,
-            n_hidden=128,
+            n_hidden=256,
             dropout_keep_prob=FLAGS.dropout_keep_prob,
             l2_reg_lambda=FLAGS.l2_reg_lambda
         )

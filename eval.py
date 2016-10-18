@@ -2,11 +2,8 @@
 
 import tensorflow as tf
 import numpy as np
-import os
 import pickle
 import data_helpers
-from text_cnn import TextCNN
-from tensorflow.contrib import learn
 
 # Parameters
 # ==================================================
